@@ -1,0 +1,461 @@
+---
+title: "Student Rotation Changes"
+author: "Kate Weber"
+date: "Feburary 2021"
+output:
+  html_document: 
+      toc: true
+      toc_float: true
+      toc_depth: 4
+  word_document: default
+subtitle: Preliminary Analysis
+---
+
+
+```{r, echo=FALSE, message=FALSE}
+library('tidyverse')
+library('treemapify')
+library('table1')
+library('kableExtra')
+library('glue')
+library('scales')
+library('lubridate')
+library('summarytools')
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+centrality_output = read_csv('algo_output.csv')
+long_centrality = read_csv('stu_long.csv')
+edge_data = read_csv('changes.csv')
+subgraphs = read_csv('subgraph_stats.csv') %>%
+  separate(graphName, c("sy_start", "sy_end", "class", "type"))
+```
+
+# Background and Significance
+
+* Rotation Change Issues
+* Learning Health System Approach
+* Graph Analysis Approach
+* Why is this new?
+
+# Objective
+
+Largely exploratory with the goal of identifying patterns that might support
+interventions that reduce the amount of perceived chaos associated with rotation changes
+
+# Materials and Methods
+
+For this analysis, we transcribed the data from the school years 2017-18, 2018-19,
+and 2019-20 from scanned copies of the original paper request into a spreadsheet.
+We used a python script to load the data into a Neo4j graph database. We classified
+student rotation changes by school year; by the class of the student making the 
+change; the type of rotation being changed; the reason for change; the student's
+membership in the ITDP program
+
+[Paragraph for collecting data about effort associated with changes before and
+after migration to electronic forms]
+
+
+# Results
+
+## Network Visualization
+
+I think in the normal course of things, this would be a theme that develops after
+the kind of ordinary descriptive work is done (ideas below). But  since that is the
+part that really illuminated this conversation, here it is:
+
+![](imags/class_overview.png)
+Each colour represents one graduating class - 2018 in blue, and 2019, 2020, and
+2021 in green, purple, and orange proceeding clockwise. 2018 and 2021 each are
+partial datasets - we have only 2018's D4 year and 2021's D3 year in the dataset
+at present. For the network analysis, we omitted changes that did not require
+another student substitution, as the primary motivator was understanding the 
+cascading impacts of student-student rotation changes. [_kgw - this can be redone
+to include/contrast CBCE changes if necessary_]
+
+Each student is shown as a circle (node) and each change request is a grey line (edge) connecting
+students.  The edges in this network are _directed_, that is, they point from the student
+who requested the change to the student who swapped in for them.  This does not always
+reflect who actually initiated the change, as a few request forms indicate that the 
+requestor is filing the form on behalf of their fellow student, but that is rare enough
+that the network is worth analyzing in directed form.  
+
+We can visualize networks in light of the properties of the nodes or of the edges.
+An alternative view of the same plot can show different student attributes
+of interest. For example, this view shows the same class structure but instead
+indicates which students are ITDP students:
+
+![](imags/itdp_overview.png)
+
+### D4 Change Networks
+
+Our first analysis of the students' changes was over the 2019-2020 school year.
+In this view and the following D4 views, nodes are coloured darker when a student
+has been involved in more changes.
+
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1920-degree.png"))
+``` 
+
+![](imags/D4-1920-degree.png)
+
+We noted a relatively open structure with few chains of changes and initially surmised
+that although changes happen, they are not generally complex cascades of change.
+The 2018-19 and 2017-18 school years, however, are much more complex networks
+of change among the students:
+
+![](imags/D4-1819-degree.png)
+
+![](imags/D4-1718-degree.png)
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+# knitr::include_graphics(c("imags/D4-1718-degree.png","imags/D4-1819-degree.png"))
+``` 
+
+To investigate this further, we ran six graph algorithms over these networks to
+assess their structure:
+
+*   Network Density
+*   Centrality
+    +   Degree Centrality
+    +   Betweenness Centrality
+    +   PageRank Centrality
+*   Community Detection
+    +   Louvain Community Detection
+    +   Label Propagation
+  
+Networks are measured in terms of the number of nodes (_n_) and edges (_m_). A
+key measure of any node's connectedness is its _degree_, the number of edges between
+it and other nodes. The mean of a network's node degrees is noted as _c_.
+
+### Network Density
+
+A simple measure of network complexity is _density_: 
+
+$$
+\rho =\frac{m}{\binom{n}{2}} = \frac{2m}{n(n-1)} = \frac{c}{n-1}
+$$
+where $0 \le \rho \le 1$. The D4 network densities are impacted by the relatively large
+number of students who do not trade with other students at all. The visual overall
+impression that 2019-2020 is different from the previous years is borne out by 
+examining the networks' density:
+
+```{r, echo = FALSE, fig.height=3}
+subgraphs %>%
+  filter(type=='student') %>%
+  mutate(school_year = glue('{sy_start}-{sy_end}')) %>%
+  ggplot() +
+  theme_bw() +
+  geom_bar(aes(x = school_year, y = density, fill = school_year), 
+           alpha = 0.5, stat='identity') +
+  facet_grid(.~class)
+```
+
+### Centrality
+
+In addition to examining networks as a whole, we can look at individual nodes and
+observe how key they are to the network with a variety of measures. _Degree_ simply
+counts the number of edges associated with each node. Figures [foo] and [bar] above
+are coloured by degree and show an increase in the number of students with a larger
+number of changes. 
+
+This figure is a histogram showing how many students have any given degree. It shows
+that D3s on the whole have a large number of students who make no changes at all
+(degree 0) and that in 2019-20, a larger than usual number of D4 students had a smaller
+degree than in previous years.  Additionally, in 2019-20, there were no D4s 
+who had more than six changes, whereas a few "frequent fliers" in prior years
+were involved in frequent (or complex) changes.
+
+```{r warning=FALSE, fig.height=4, echo=FALSE}
+centrality_output %>%
+  filter(type=='student') %>%
+  ggplot(aes(x = alpha.degree, fill = school_year)) +
+  geom_histogram(alpha=0.5, binwidth = 1) +
+  facet_grid(class ~ school_year) + 
+  theme_bw() +
+  labs(title="Distribution of Number of Changes by School Year and Class",
+       x= "Number of Changes", y = "Student Count")
+```
+
+#### PageRank
+Designed for use by Google for determining whether a web site should be prioritized
+in search results, PageRank has become a widely-used indicator of centrality in 
+computing, transportation, mathematical, and social networks. PageRank measures
+the importance of a node in a network in terms of how connected it is but also
+considers the importance of the nodes pointing to it. For the purposes of this 
+analysis, PageRank shows students who have taken other students' rotations, while
+prioritizing those partners who themselves have taken rotations.
+
+_KGW: This is the helpers' circle_
+
+
+#### Betweenness
+Betweenness centrality points out nodes that are on the shortest path between other 
+nodes in the network. In theory, betweenness shows nodes that are involved in more
+communication - whose absence is most likely to disrupt the network. Social studies
+use betweeness to examine who may exert influence by providing "social glue" or
+mediating messaging between other members of the community.
+
+_KGW: these are the go-betweens_
+
+#### Comparing PageRank and Betweenness Visualizations
+
+*17-18 PageRank*
+![](imags/D4-1718-pagerank.png)
+
+*17-18 Betweenness*
+![](imags/D4-1718-betweenness.png)
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1718-pagerank.png","imags/D4-1718-betweenness.png"))
+``` 
+*18-19 PageRank*
+![](imags/D4-1819-pagerank.png)
+
+*18-19 Betweenness*
+![](imags/D4-1819-betweenness.png)
+
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1819-pagerank.png","imags/D4-1819-betweenness.png"))
+``` 
+*19-20 PageRank*
+![](imags/D4-1920-pagerank.png)
+
+*19-20 Betweenness*
+![](imags/D4-1920-betweenness.png)
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1920-pagerank.png","imags/D4-1920-betweenness.png"))
+``` 
+
+### Summary of Centrality Measures
+
+We do not see statistically significant variance for any of these centrality measures
+for any of the centrality measures among students from class to class or from year to year.
+Betweenness is notably unhelpful for considering the D3 students (not visualized above)
+because their rotation change networks are significantly less complex than they
+are for D4s.  The very loosely-connected network for the Class of 2021 (Orange
+in figure [x the big overview above]), for whom we only have D3 data at present is an example.
+
+
+```{r, echo=FALSE, fig.height=3.5}
+centrality_output %>%
+  filter(type == 'student') %>%
+  select(-c('X1', 'type', 'labelPropagation', 'louvain'))%>%
+  pivot_longer(cols=c('alpha.degree', 'betweenness', 'pageRank')) %>%
+  group_by(school_year, class, name) %>%
+  filter(between(value, mean(value, na.rm = TRUE)  - (2.5 * sd(value, na.rm=TRUE)), 
+                     mean(value, na.rm=TRUE) + (2.5 * sd(value, na.rm=TRUE)))) %>%
+  ggplot(aes(x=school_year, y = value, fill = school_year)) +
+  geom_boxplot(alpha = .5) +
+  theme_bw() +
+  facet_grid(name ~ class, scales = 'free') +
+  labs(title='Assorted Centrality Measures by Class and School Year')
+```
+
+### Tabulated Network Metrics
+
+```{r echo=FALSE}
+subgraphs %>%
+  filter(type=='student')%>%
+  mutate(school_year = glue('{sy_start}-{sy_end}')) %>%
+  select(c(school_year, class, nodeCount, relationshipCount, density, min, max, mean)) %>%
+  rename(minDegree = min, maxDegree = max, meanDegree = mean)%>%
+  arrange(school_year, class) %>%
+  kable(digits = 3)
+```
+
+### Community Detection
+
+Network algorithms can detect community structure - likely social or technical
+communities dependent on connections with each other. We passed two different
+community detection algorithms over the D4 rotation swaps - this is the output
+of an algorithm called Louvain community detection.
+
+[_kgw - I've anonymized all this data really heavily. I'm extremely curious
+to know whether the community structures detected actually reflect anything about
+the structures of the class' cliques_]
+
+*17-18 Louvain Communities*
+![](imags/D4-1718-louvain.png)
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1718-louvain.png"))
+``` 
+*18-19 Louvain Communities*
+![](imags/D4-1819-louvain.png)
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1819-louvain.png"))
+``` 
+
+*19-20 Louvain Communities*
+![](imags/D4-1920-louvain.png)
+
+```{r, echo=FALSE,out.width="49%", out.height="20%",fig.cap="caption",fig.show='hold',fig.align='center'}
+#knitr::include_graphics(c("imags/D4-1920-louvain.png"))
+```
+
+## Cross-Tabulating Reason, Class, School Year, and Rotation
+
+[Describe kinds of changes and overall patterns between classes and from one school
+year to the next]
+
+This table indicates how many changes were requested by students in each class,
+subdivided by whether the request was strictly for time off from CBCE or whther
+it required a swap with another student.
+
+```{r, echo=FALSE}
+edge_data$swap_type <- factor(edge_data$target_node,levels=c('NoSwap', 'Student'), labels=c('CBCE Time Off', 'Student Swap')) 
+
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+table1(~  swap_type  | factor(school_year) * factor(student_class), data=., overall=F)
+```
+
+
+### Reasons
+
+Student switch rotations for a variety of reasons. The school's policy allows for
+[fill in what the school's policy allows for]. 
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+  mutate(reason = fct_infreq(fct_lump_n(reason, 11))) %>%
+  group_by(school_year, student_class, reason) %>%
+  tally() %>%
+  ggplot(aes(area=n, fill=reason, label = reason)) +
+  geom_treemap(alpha=0.75) +
+  geom_treemap_text(colour = 'black') +
+  scale_fill_brewer(palette='Set3') +
+  facet_grid(student_class ~ school_year) +
+  labs(title="Top 12 Reasons for Change by School Year and Class", 
+       subtitle = "Relative Ratio of Reasons")
+```
+
+Alternative view of Change reasons - absolute numbers rather than proportionally
+
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+  mutate(student_class = glue('D{student_class}')) %>%
+  mutate(reason = fct_infreq(fct_lump_n(reason, 11))) %>%
+  ggplot(aes(x = reason, fill = reason)) +
+  geom_bar(alpha=0.75) +
+  theme_bw() +
+  scale_fill_brewer(palette='Set3') +
+  facet_grid(student_class ~ school_year) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+ theme(legend.position = 'none') +
+  labs(title="Top 12 Reasons for Rotation Change by School Year and Class")
+
+```
+
+Or tabular
+
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+  mutate(student_class = glue('D{student_class}')) %>%
+  mutate(reason = fct_infreq(fct_lump_n(reason, 11))) %>%
+  table1(~ reason | school_year + student_class, data=., overall = F)
+```
+
+### Rotations Impacted
+
+I could really use some informed input about whether any of this information is 
+actually useful
+
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+  group_by(school_year, student_class, rotation) %>%
+  tally() %>%
+  ggplot(aes(area=n, fill=n, label = rotation)) +
+  geom_treemap() +
+  geom_treemap_text(colour = 'white') +
+  facet_grid(student_class ~ school_year)+
+  labs(title="Rotations Changed by School Year and Class", 
+       subtitle = "Relative Ratio of Rotations")
+```
+
+Or tabular
+
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3, 4)) %>%
+  mutate(student_class = glue('D{student_class}')) %>%
+  mutate(rotation = fct_infreq(fct_lump_n(rotation, 11))) %>%
+  table1(~ rotation | school_year + student_class, data=., overall =F)
+
+```
+
+## Temporal aspect
+
+Early analysis leaned on an assumption that the 2019-2020 school year's relative
+simplicity was driven by the system shutdowns that accompanied the COVID pandemic
+in the spring of 2020. On further consideration, though, the vast majority of the
+school year had passed before the pandemic really impacted operations - Michigan
+suspended school and limited clinical operations on March 13, 2020.
+
+No rotation changes were approved in April 2020. That year also had almost no D4
+SoD Travel changes.
+
+
+```{r, echo=FALSE}
+edge_data %>%
+  filter(student_class %in% c(3,4)) %>%
+  group_by(school_year, student_class, month=floor_date(approved, 'month')) %>%
+  tally() %>%
+  ggplot() +
+  geom_bar(aes(x=month, y=n, fill = school_year), stat='identity', alpha = 0.5) +
+  scale_x_date(labels = date_format('%b')) +
+  facet_grid(student_class ~ school_year, scales = 'free_x') +
+  labs(title="Number of Requests Approved by Month")
+```
+
+
+## Costs Associated with Changes
+```{r, echo=FALSE}
+# This needs more real data, just a sketchy POC here at the moment
+# rotation_effort = tibble(role )
+```
+
+TBD
+
+# Discussion
+
+Why was 2020 different?
+
+Is it actually different?
+
+Is the system just really brittle? A fair bit of the 2018-19 chaos can be traced
+back to one pregnancy. Is that enough to make any class really squirrelly
+
+Are there things we can learn?
+
+Will the move to electronic forms change change behaviour?
+
+Did it save effort and/or money? If it's easier for students to deal with their
+rotation paperwork, will they file more of it?
+
+Who changes and why?
+
+Are changes preventable?
+
+How can we drill into reasons for change and preventing them without unfairly profiling students?
+
+Are there conversations we can have about community structure and DEI? About
+ensuring students have access to the support systems they need?  It didn't really
+look to me as though the ITDP students were all off in their own corner...
+
+## COVID impact
+limited - but did cancel late-semester SOD travel
+
+## Limitations
+Inconsistent reason coding
+Limited number of years to work with
+Difficulty sorting out COVID impact if any
+
+# Conclusion
+
