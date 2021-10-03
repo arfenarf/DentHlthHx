@@ -1,13 +1,19 @@
 # DentHlthHx
 
-This repo has the bones of several recent projects.
+This repo has the bones of several recent projects. I have included no underlying data or our UM utility libraries
+but you should have a feel for how I work from these examples. 
 
 ## D3 Student Feedback
 
-This is a classic NLP sentiment-and-topic analysis of the student feedback surveys we receive from most of the D3s most days. 
-Academic Affairs is intersted in the mood of the class and wants to know where the bulk of their concerns rest at a given time
+This is a classic NLP sentiment-and-topic analysis of the student feedback surveys we receive from most of the D3s on most days. 
+
+Academic Affairs is interested in the mood of the class. They want to know where the bulk of their concerns rest at a given time
 so they can offer better mentoring and support in the clinics. It's an R project running over textminR and the tidyverse. The
-audience is at the associate Dean level. I expect this will become a paper, please do not share
+audience is at the associate Dean level. I expect to refine and publish this, please do not share outside your team.
+
+When working on NLP in R, I use the approach and methodology I learned in "Tidy Text Mining in R" because it interleaves
+so well with other R-based tidy data tools. When doing NLP work in Python, I generally transform into matrices that are tractable 
+for computation with `sklearn` and its friends.
 
 ## Rotation Analysis
 
@@ -19,20 +25,21 @@ part of a strong sub-community might find it harder to change rotations - they a
 Diversity, Equity, and Inclusion direction than form one of working out clerical workload.  This work was done in a mix of R and Python,
 and I found myself switching tools for the sake of performance or for simple transfers between Neo4j and the iGraph toolset.
 
-I generally prefer python for database pipeline work and some analytical efforts, but I much prefer R when preparing
-manuscript-quality data visualizations. When the final product is going to a research team, I use R exclusively.
+I generally prefer python for database pipeline work and some analytical efforts, but I prefer R when preparing
+manuscript-quality data visualizations. When the final product is going to a research team, I use R exclusively, as it's
+the native analytical tool in the biosciences.
 
 ## Health History Parsing
 
-Important context - this project was in full flight when COVID hit, we lost almost all our front-line staff,
-and my job was instantly transformed from half-production, half-research to all-production plus basic help center support. The school is 
-only now moving back into somewhat more normal behaviour and I am just now picking this work back up.
+Important context - this project was in full flight when COVID hit. We lost almost all our front-line staff,
+and my job was instantly transformed from half-production, half-research to all-production plus basic help center support. I had to down tools on a messy project and some of the approaches I was using at the time have been supplanted by pretrained word-vector approaches. The school is only now moving back into somewhat more normal behaviour and I am actively working on the next version.
 
 The files here include:
+
 * some notes to myself about how to use this material for constructing the whole thing
 * a talk I delivered just before COVID about how this all comes together
-* `map_hx_text` loads and maps our EHR data into a parsed, graph-data-friendly form
-* `load_umls_graph` builds the Neo4j dataset and binds it to the UMLS graph data
-* `connect_patients` builds a homogeneous graph of patient nodes that is suitable for graph learning tools
+* `map_hx_text.py` loads and maps our EHR data into a parsed, graph-data-friendly form
+* `load_umls_graph.py` builds the Neo4j dataset and binds it to the UMLS graph data
+* `connect_patients.py` builds a homogeneous graph of patient nodes that is suitable for graph learning tools
 
 This project is the one I am preparing to reanimate and bring into my doctoral research.
